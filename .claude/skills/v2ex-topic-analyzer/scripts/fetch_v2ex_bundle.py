@@ -180,10 +180,7 @@ def main() -> None:
     max_replies = args.max_replies or None
     max_chars = args.max_chars or None
     bundle = client.build_bundle(args.topic_id, args.max_pages, max_replies, max_chars)
-    sys.stdout.write(bundle)
-    if not bundle.endswith("\n"):
-        sys.stdout.write("\n")
-
+    print(bundle)
 
 if __name__ == "__main__":
     main()
