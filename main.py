@@ -28,7 +28,11 @@ def build_prompt(topic_id: int, max_pages: int, output_path: str) -> str:
     )
 
 
-@tool("write_v2ex_analysis", "Write V2EX analysis result to a file", {"topic_id": int, "analysis": str, "output_path": str})
+@tool(
+    "write_v2ex_analysis",
+    "Write V2EX analysis result to a file",
+    {"topic_id": int, "analysis": str, "output_path": str},
+)
 async def write_v2ex_analysis(args: dict) -> dict:
     """Write V2EX analysis to a markdown file."""
     from pathlib import Path
