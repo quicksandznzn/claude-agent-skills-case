@@ -19,12 +19,24 @@ logger = logging.getLogger(__name__)
 
 
 def build_prompt(topic_id: int, max_pages: int, output_path: str) -> str:
+    image_output_path = output_path.replace(".md", "_summary.png")
     return (
-        "Analyze the V2EX topic using the v2ex-topic-analyzer skill. "
-        f"topic_id={topic_id}, max_pages={max_pages}. "
-        "After analysis, must use the write_v2ex_analysis tool to save the result. "
-        f"Parameters: topic_id={topic_id}, analysis=<your analysis content>, output_path='{output_path}'. "
-        "The analysis content should be in Markdown format and language must be Chinese."
+        "Complete the following workflow step by step:\n\n"
+        "## Step 1: Analyze V2EX Topic\n"
+        "Use the v2ex-topic-analyzer skill to analyze the topic. "
+        f"Parameters: topic_id={topic_id}, max_pages={max_pages}. "
+        "The analysis should be in Markdown format and Chinese language.\n\n"
+        "## Step 2: Generate Summary Image\n"
+        "After completing the analysis, use the v2ex-summary-image skill to generate a visual summary. "
+        f"Save the analysis text to a temp file, then run the image generator with output path: '{image_output_path}'. "
+        "The image will use a hand-drawn bullet journal style with Chinese text.\n\n"
+        "## Step 3: Save Final Output\n"
+        "Use the write_v2ex_analysis tool to save the final result. "
+        f"Parameters: topic_id={topic_id}, analysis=<your analysis with image>, output_path='{output_path}'. "
+        "Insert the summary image at the beginning of the markdown:\n"
+        f"![V2EX话题总结]({image_output_path})\n\n"
+        "---\n\n"
+        "<rest of your analysis content>"
     )
 
 
