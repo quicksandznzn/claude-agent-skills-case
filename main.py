@@ -8,48 +8,69 @@ import logging
 import os
 from pathlib import Path
 
-from claude_agent_sdk import ClaudeAgentOptions, query
-from claude_agent_sdk.types import AssistantMessage, ResultMessage, TextBlock
+from claude_agent_sdk import (
+    ClaudeAgentOptions,
+    ClaudeSDKClient,
+    create_sdk_mcp_server,
+    tool,
+)
 
 logger = logging.getLogger(__name__)
 
 
-def build_prompt(topic_id: int, max_pages: int) -> str:
+def build_prompt(topic_id: int, max_pages: int, output_path: str) -> str:
     return (
         "Analyze the V2EX topic using the v2ex-topic-analyzer skill. "
         f"topic_id={topic_id}, max_pages={max_pages}. "
-        "Return only the analysis body in Markdown and language must be chinese"
+        "After analysis, use the write_analysis tool to save the result. "
+        f"Parameters: topic_id={topic_id}, analysis=<your analysis content>, output_path='{output_path}'. "
+        "The analysis content should be in Markdown format and language must be Chinese."
     )
 
 
-async def run(topic_id: int, max_pages: int, model: str | None, verbose: bool) -> str:
+@tool("write_analysis", "Write V2EX analysis result to a file", {"topic_id": int, "analysis": str, "output_path": str})
+async def write_analysis(args: dict) -> dict:
+    """Write V2EX analysis to a markdown file."""
+    from pathlib import Path
+
+    topic_id = args["topic_id"]
+    analysis = args["analysis"]
+    output_path_str = args.get("output_path", "")
+
+    # Resolve output path
+    if output_path_str:
+        file_path = Path(output_path_str)
+    else:
+        file_path = Path("analysis_outputs") / f"analysis_{topic_id}.md"
+
+    # Create directory and write file
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+    file_path.write_text(f"# V2EX Analysis {topic_id}\n\n{analysis}\n", encoding="utf-8")
+
+    return {"content": [{"type": "text", "text": f"Analysis saved to {file_path}"}]}
+
+
+# Create MCP server config
+mcp_server = create_sdk_mcp_server(name="v2ex-tools", version="1.0.0", tools=[write_analysis])
+
+
+async def run(topic_id: int, max_pages: int, output_path: str, model: str | None, verbose: bool) -> None:
     def _stderr_logger(line: str) -> None:
         logger.debug("claude-cli: %s", line)
 
     options = ClaudeAgentOptions(
         setting_sources=["user", "project"],
-        allowed_tools=["Skill", "Read", "Write", "Bash"],
+        allowed_tools=["Skill", "Read", "Write", "Bash", "mcp__v2ex-tools__write_analysis"],
         permission_mode="bypassPermissions",
         model=model,
         stderr=_stderr_logger if verbose else None,
         extra_args={"debug-to-stderr": None} if verbose else {},
+        mcp_servers={"v2ex-tools": mcp_server},
     )
-
-    chunks: list[str] = []
-    final_result: str | None = None
-    async for message in query(prompt=build_prompt(topic_id, max_pages), options=options):
-        logger.debug(message)
-        if isinstance(message, AssistantMessage):
-            for block in message.content:
-                if isinstance(block, TextBlock):
-                    chunks.append(block.text)
-        elif isinstance(message, ResultMessage) and message.result:
-            final_result = message.result
-
-    output = "".join(chunks).strip()
-    if not output and final_result:
-        output = final_result.strip()
-    return output
+    async with ClaudeSDKClient(options=options) as client:
+        await client.query(prompt=build_prompt(topic_id, max_pages, output_path))
+        async for message in client.receive_response():
+            print(message)
 
 
 def resolve_output_path(output_path: str | None, topic_id: int) -> Path:
@@ -78,14 +99,8 @@ def main() -> None:
     if not os.getenv("V2EX_TOKEN"):
         raise SystemExit("Missing V2EX_TOKEN. Set V2EX_TOKEN.")
 
-    analysis = asyncio.run(run(args.topic_id, args.max_pages, args.model, args.verbose))
-    if not analysis:
-        raise SystemExit("No analysis output received from Claude Agent SDK.")
-
-    output_path = resolve_output_path(args.output, args.topic_id)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(f"# V2EX Analysis {args.topic_id}\n\n{analysis}\n", encoding="utf-8")
-    logger.info("Saved analysis to %s", output_path)
+    output_path = str(resolve_output_path(args.output, args.topic_id))
+    asyncio.run(run(args.topic_id, args.max_pages, output_path, args.model, args.verbose))
 
 
 if __name__ == "__main__":

@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import argparse
 import os
-import sys
 from collections.abc import Iterable
 from typing import Any, Optional
 
@@ -130,7 +129,7 @@ class V2EXClient:
         max_replies: Optional[int],
         max_chars: Optional[int],
     ) -> str:
-        with httpx.Client() as client:
+        with httpx.Client(verify=False) as client:
             topic = self.fetch_topic(client, topic_id)
             replies = self.fetch_replies(
                 client,
@@ -181,6 +180,7 @@ def main() -> None:
     max_chars = args.max_chars or None
     bundle = client.build_bundle(args.topic_id, args.max_pages, max_replies, max_chars)
     print(bundle)
+
 
 if __name__ == "__main__":
     main()
