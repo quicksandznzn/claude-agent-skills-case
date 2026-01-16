@@ -22,14 +22,14 @@ def build_prompt(topic_id: int, max_pages: int, output_path: str) -> str:
     return (
         "Analyze the V2EX topic using the v2ex-topic-analyzer skill. "
         f"topic_id={topic_id}, max_pages={max_pages}. "
-        "After analysis, use the write_analysis tool to save the result. "
+        "After analysis, must use the write_v2ex_analysis tool to save the result. "
         f"Parameters: topic_id={topic_id}, analysis=<your analysis content>, output_path='{output_path}'. "
         "The analysis content should be in Markdown format and language must be Chinese."
     )
 
 
-@tool("write_analysis", "Write V2EX analysis result to a file", {"topic_id": int, "analysis": str, "output_path": str})
-async def write_analysis(args: dict) -> dict:
+@tool("write_v2ex_analysis", "Write V2EX analysis result to a file", {"topic_id": int, "analysis": str, "output_path": str})
+async def write_v2ex_analysis(args: dict) -> dict:
     """Write V2EX analysis to a markdown file."""
     from pathlib import Path
 
@@ -51,7 +51,7 @@ async def write_analysis(args: dict) -> dict:
 
 
 # Create MCP server config
-mcp_server = create_sdk_mcp_server(name="v2ex-tools", version="1.0.0", tools=[write_analysis])
+mcp_server = create_sdk_mcp_server(name="v2ex-tools", version="1.0.0", tools=[write_v2ex_analysis])
 
 
 async def run(topic_id: int, max_pages: int, output_path: str, model: str | None, verbose: bool) -> None:
@@ -60,7 +60,7 @@ async def run(topic_id: int, max_pages: int, output_path: str, model: str | None
 
     options = ClaudeAgentOptions(
         setting_sources=["user", "project"],
-        allowed_tools=["Skill", "Read", "Write", "Bash", "mcp__v2ex-tools__write_analysis"],
+        allowed_tools=["Skill", "Read", "Write", "Bash", "mcp__v2ex-tools__write_v2ex_analysis"],
         permission_mode="bypassPermissions",
         model=model,
         stderr=_stderr_logger if verbose else None,
